@@ -50,6 +50,7 @@ resource "azurerm_container_app" "mycontainerapp" {
       readiness_probe {
         port = 8080
         transport = "HTTP"
+        interval_seconds = "240"
       }
     }
 
