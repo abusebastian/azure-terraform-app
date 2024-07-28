@@ -44,6 +44,7 @@ resource "azurerm_container_app" "mycontainerapp" {
         port = 8080
         transport = "HTTP"
         initial_delay = "60"
+        interval_seconds = "240"
       }
       
       readiness_probe {
