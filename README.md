@@ -27,3 +27,12 @@ To start the application you can just run (`java -jar target/react-and-spring-da
 ---
 
 To see the frontend, navigate to http://localhost:8080. You are immediately redirected to a login form. Log in as `greg/turnquist`
+
+
+---
+
+
+How to configure the pipeline to deploy the App
+
+    Create a Service connection Manually
+    
