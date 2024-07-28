@@ -39,19 +39,6 @@ resource "azurerm_container_app" "mycontainerapp" {
         name  = "PORT"
         value = "8080"
       }
-
-      liveness_probe {
-        port = 8080
-        transport = "HTTP"
-        initial_delay = "60"
-        interval_seconds = "240"
-      }
-      
-      readiness_probe {
-        port = 8080
-        transport = "HTTP"
-        interval_seconds = "240"
-      }
     }
 
     max_replicas = 5

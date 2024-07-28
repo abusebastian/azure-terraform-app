@@ -1,3 +1,18 @@
+# Configure the Application pipeline which will Build and Deploy
+Configuring the Application pipeline.
+
+    1) This pipeline should be run only after running the azure-terraform-infrastructure pipeline
+    2) Configure the repo with azure-pipeline.yml present in the root folder
+    3) Give the service connection created previously as a parameter to 'armServiceConnection' field. (Default name used is : exodus)
+    4) Give the service connection created previously as a parameter to 'acrServiceConnection' field. (Default name used is : exodusacr)
+    3) Run the pipeline
+    4) It will create below
+        - Build and Push the application as a docker image to ACR
+        - Storage Container : myassignmentapp-statefile
+        - Container App: mycontainerapp-dev
+        - Container App: mycontainerapp-prod
+
+
 # react-and-spring-data-rest
 
 The application has a react frontend and a Spring Boot Rest API, packaged as a single module Maven application.
@@ -29,20 +44,4 @@ To start the application you can just run (`java -jar target/react-and-spring-da
 To see the frontend, navigate to http://localhost:8080. You are immediately redirected to a login form. Log in as `greg/turnquist`
 
 
----
-
-
-How to configure the pipeline to deploy the App
-
-    Create a Service connection Manually
-    
-    1) Go to Entra ID
-    2) Click on App registrations
-    3) Add a new registration
-    4) Go to Certificates and Secrets
-    5) Add new client secret
-    6) Go to the subscription and click on IAM
-    7) Add a role assignments and give "Owner" permission to the App registation which you created in step 3 (Allow user to assign all roles except privileged administrator roles Owner, UAA, RBAC (Recommended) 
-        Allow user to assign all roles (highly privileged) )
-    8) Configure Service connection manually using these details in Azure DevOps
 
