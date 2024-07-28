@@ -36,3 +36,9 @@ How to configure the pipeline to deploy the App
 
     Create a Service connection Manually
     
+    1) Go to Entra ID
+    2) Click on App registrations
+    3) Add a new registration
+    4) Go to Certificates and Secrets
+    5) 
+
