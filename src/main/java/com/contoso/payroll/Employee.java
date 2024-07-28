@@ -13,7 +13,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 @Entity
 public class Employee {
 
-	// public Employee(){}
+	public Employee(){}
 
 	private @Id @GeneratedValue Long id;
 	private String firstName;

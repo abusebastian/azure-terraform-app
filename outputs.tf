@@ -1,9 +1,3 @@
-output "ingress" {
-  value = azurerm_container_registry.acr.name
-  values= azurerm_container_app.mycontainerapp.
-}
-
-
 output "container_app_ingress" {
   value = {
     external_enabled = azurerm_container_app.mycontainerapp.ingress.external_enabled

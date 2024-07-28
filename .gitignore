@@ -1,0 +1,7 @@
+target
+**/.terraform
+**/.terraform.lock.hcl
+node_modules
+package-lock.json
+.DS_Store
+terraform.tfstate
