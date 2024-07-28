@@ -1,4 +1,4 @@
-resourceGroup = "myAssignment"
+resourceGroup = "myAssignmentrg"
 managedIdentityAcr = "containerappmidentity"
 location = "westeurope"
 myContainerRegistry= "exodusacr"

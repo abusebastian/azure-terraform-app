@@ -39,6 +39,24 @@ resource "azurerm_container_app" "mycontainerapp" {
         name  = "PORT"
         value = "8080"
       }
+
+      liveness_probe {
+        port = 8080
+        transport = "HTTP"
+      }
+      
+      readiness_probe {
+        port = 8080
+        transport = "HTTP"
+      }
+    }
+
+    max_replicas = 2
+    min_replicas = 0
+
+    http_scale_rule {
+      name="scalerule"
+      concurrent_requests = "10"
     }
   }
 
