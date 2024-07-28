@@ -40,15 +40,15 @@ resource "azurerm_container_app" "mycontainerapp" {
         value = "8080"
       }
 
-      liveness_probe {
-        port = 8080
-        transport = "HTTP"
-      }
+      # liveness_probe {
+      #   port = 8080
+      #   transport = "HTTP"
+      # }
       
-      readiness_probe {
-        port = 8080
-        transport = "HTTP"
-      }
+      # readiness_probe {
+      #   port = 8080
+      #   transport = "HTTP"
+      # }
     }
 
     max_replicas = 2
