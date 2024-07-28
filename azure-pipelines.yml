@@ -111,7 +111,7 @@ jobs:
       Dockerfile: '**/Dockerfile'
       tags: $(Build.BuildId)
       repository: ${{ parameters.acrServiceConnection }}/reactspringapp
-      containerRegistry: ${{ parameters.acrServiceConnection }}
+      containerRegistry: ${{ parameters.acrServiceConection }}
 
   - task: AzureCLI@2
     displayName: 'Terraform Initialize DEV'
