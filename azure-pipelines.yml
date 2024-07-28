@@ -215,7 +215,7 @@ jobs:
         terraform init -no-color -input=false -reconfigure \
           -backend-config='storage_account_name=${{ parameters.terraformStorageAccount }}' \
           -backend-config='container_name=${{ parameters.statefile }}-${{ parameters.terraformStorageAccountContainer }}' \
-          -backend-config='key=${{ parameters.statefilestatefile }}-${{ parameters.terraformStorageAccountContainer }}-prod.tfstate' \
+          -backend-config='key=${{ parameters.statefile }}-${{ parameters.terraformStorageAccountContainer }}-prod.tfstate' \
           -backend-config='resource_group_name=${{ parameters.terraformResourceGroup }}'
 
   - task: AzureCLI@2
