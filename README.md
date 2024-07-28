@@ -40,5 +40,9 @@ How to configure the pipeline to deploy the App
     2) Click on App registrations
     3) Add a new registration
     4) Go to Certificates and Secrets
-    5) 
+    5) Add new client secret
+    6) Go to the subscription and click on IAM
+    7) Add a role assignments and give "Owner" permission to the App registation which you created in step 3 (Allow user to assign all roles except privileged administrator roles Owner, UAA, RBAC (Recommended) 
+        Allow user to assign all roles (highly privileged) )
+    8) Configure Service connection manually using these details in Azure DevOps
 

@@ -43,7 +43,7 @@ resource "azurerm_container_app" "mycontainerapp" {
       liveness_probe {
         port = 8080
         transport = "HTTP"
-        initial_delay = "600"
+        initial_delay = "60"
       }
       
       readiness_probe {
