@@ -13,16 +13,6 @@ variable "managedIdentityAcr" {
     description = "MI used for ACR"
 }
 
-variable "vnetAddressSpace" {
-    type = string
-    description = "Vnet Address CIDR"
-}
-
-variable "subnetAddressSpace" {
-    type = string
-    description = "Vnet Subnet CIDR"
-}
-
 variable "myContainerRegistry" {
     type = string
     description = "Name of Container Registry"
