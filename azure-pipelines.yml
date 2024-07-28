@@ -89,27 +89,30 @@ jobs:
           # echo "STORAGE_ACCOUNT_KEY=$STORAGE_ACCOUNT_KEY"
           echo "CONTAINER_NAME=${{ parameters.statefile }}-${{ parameters.terraformStorageAccountContainer }}"
 
-  - task: Maven@3
-    displayName: Maven Build
-    inputs:
-      goals: 'clean test package'
-      publishJUnitResults: true # boolean. Publish to Azure Pipelines. Default: true.
-      testResultsFiles: '**/surefire-reports/TEST-*.xml' # string. Required when publishJUnitResults = true. Test results files. Default: **/surefire-reports/TEST-*.xml.
+  - ${{ if not parameters.isdestroy }}:
+    - task: Maven@3
+      displayName: Maven Build
+      inputs:
+        goals: 'clean test package'
+        publishJUnitResults: true # boolean. Publish to Azure Pipelines. Default: true.
+        testResultsFiles: '**/surefire-reports/TEST-*.xml' # string. Required when publishJUnitResults = true. Test results files. Default: **/surefire-reports/TEST-*.xml.
 
-  - task: Docker@2
-    displayName: Login to ACR
-    inputs:
-      command: login
-      containerRegistry: ${{ parameters.acrServiceConnection }}
+  - ${{ if not parameters.isdestroy }}: 
+    - task: Docker@2
+      displayName: Login to ACR
+      inputs:
+        command: login
+        containerRegistry: ${{ parameters.acrServiceConnection }}
 
-  - task: Docker@2
-    displayName: Docker Build and Push
-    inputs:
-      command: 'buildAndPush'
-      Dockerfile: '**/Dockerfile'
-      tags: $(Build.BuildId)
-      repository: ${{ parameters.acrServiceConnection }}/reactspringapp
-      containerRegistry: ${{ parameters.acrServiceConnection }}
+  - ${{ if not parameters.isdestroy }}: 
+    - task: Docker@2
+      displayName: Docker Build and Push
+      inputs:
+        command: 'buildAndPush'
+        Dockerfile: '**/Dockerfile'
+        tags: $(Build.BuildId)
+        repository: ${{ parameters.acrServiceConnection }}/reactspringapp
+        containerRegistry: ${{ parameters.acrServiceConnection }}
 
   - task: AzureCLI@2
     displayName: 'Terraform Initialize DEV'
