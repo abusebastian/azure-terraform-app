@@ -1,0 +1,266 @@
+# trigger:
+# - master
+
+parameters:
+  - name: acrServiceConnection
+    default: exodusacr
+  - name: armServiceConnection
+    default: exodus
+  - name: workingDirectory
+    default: "azure-terraform-app"
+  - name: terraformVersion
+    default: "1.9.3"
+  - name: terraformResourceGroup
+    default: "myrg"
+  - name: terraformStorageAccount
+    default: "myterraformstgaccount"
+  - name: terraformStorageAccountContainer
+    default: "statefile"
+  - name: location
+    default: "westeurope"
+  - name: statefile
+    default: myassignmentapp
+  - name: isdestroy
+    default: false
+    values:
+    - true
+    - false
+
+pool:
+  vmImage: 'ubuntu-latest'
+  # name: local
+
+
+jobs:
+- job: appBuild
+  displayName: App Build and Deploy Dev
+
+  steps:
+  - script: |
+      TERRAFORM_VERSION=${{ parameters.terraformVersion }}
+      curl -L -o terraform.zip https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      unzip terraform.zip
+      sudo mv terraform /usr/local/bin/
+      terraform --version
+    displayName: Install Terraform
+
+  - task: AzureCLI@2
+    displayName: Storage Account Check & Creation
+    inputs:
+      azureSubscription: ${{ parameters.armServiceConnection }}
+      workingDirectory: $(System.DefaultWorkingDirectory)
+      addSpnToEnvironment: true
+      scriptType: bash
+      failOnStandardError: false
+      scriptLocation: inlineScript
+      inlineScript: |
+          if ! az group show --name ${{ parameters.terraformResourceGroup }} --output none; then
+            echo "*****Resource group ${{ parameters.terraformResourceGroup }} does not exist. Creating...*****"
+            az group create --name ${{ parameters.terraformResourceGroup }} --location ${{ parameters.location }}
+            if [ $? -eq 0 ]; then
+              echo "*****Resource group ${{ parameters.terraformResourceGroup }} is created*****"
+            else
+              echo "*****Resource group ${{ parameters.terraformResourceGroup }} creation failed*****"
+            fi
+          else
+            echo "*****Resource group ${{ parameters.terraformResourceGroup }} exists*****"
+          fi
+
+          if ! az storage account show --name ${{ parameters.terraformStorageAccount }} --resource-group ${{ parameters.terraformResourceGroup }} --output none;then
+            if az storage account check-name --name  ${{ parameters.terraformStorageAccount }} --query nameAvailable ;then
+              echo "*****Storage Account ${{ parameters.terraformStorageAccount }} does not exist. Attempting to create...*****"
+              az storage account create --name ${{ parameters.terraformStorageAccount }} --resource-group ${{ parameters.terraformResourceGroup }} --location ${{ parameters.location }} --sku Standard_LRS
+              if [ $? -eq 0 ]; then
+                echo "*****Storage Account ${{ parameters.terraformStorageAccount }} is created*****"
+              else
+                echo "*****Storage Account ${{ parameters.terraformStorageAccount }} creation failed*****"
+              fi
+            else
+              echo "*****Storage Account ${{ parameters.terraformStorageAccount }} name not available/invalid.*****"
+            fi
+          else
+            echo "*****Storage Account ${{ parameters.terraformStorageAccount }} exists.*****"
+          fi
+
+          STORAGE_ACCOUNT_KEY=$(az storage account keys list --resource-group ${{ parameters.terraformResourceGroup }} --account-name ${{ parameters.terraformStorageAccount }} --query '[0].value' --output tsv)
+
+          if ! az storage container show --name ${{ parameters.statefile }}-${{ parameters.terraformStorageAccountContainer }} --account-name ${{ parameters.terraformStorageAccount }} --account-key $STORAGE_ACCOUNT_KEY --output none; then
+            echo "Container ${{ parameters.statefile }}-${{ parameters.terraformStorageAccountContainer }} does not exist. Creating..."
+            az storage container create --name ${{ parameters.statefile }}-${{ parameters.terraformStorageAccountContainer }} --account-name ${{ parameters.terraformStorageAccount }} --account-key $STORAGE_ACCOUNT_KEY
+          fi
+
+          echo "STORAGE_ACCOUNT_NAME=${{ parameters.terraformStorageAccount }}"
+          # echo "STORAGE_ACCOUNT_KEY=$STORAGE_ACCOUNT_KEY"
+          echo "CONTAINER_NAME=${{ parameters.statefile }}-${{ parameters.terraformStorageAccountContainer }}"
+
+  - task: Maven@3
+    displayName: Maven Build
+    inputs:
+      mavenPOMFile: ./${{ parameters.workingDirectory }}/pom.xml
+      goals: 'clean test package'
+      publishJUnitResults: true # boolean. Publish to Azure Pipelines. Default: true.
+      testResultsFiles: '**/surefire-reports/TEST-*.xml' # string. Required when publishJUnitResults = true. Test results files. Default: **/surefire-reports/TEST-*.xml.
+
+  - task: Docker@2
+    displayName: Login to ACR
+    inputs:
+      command: login
+      containerRegistry: ${{ parameters.acrServiceConnection }}
+
+  - task: Docker@2
+    displayName: Docker Build and Push
+    inputs:
+      command: 'buildAndPush'
+      Dockerfile: '**/Dockerfile'
+      tags: $(Build.BuildId)
+      repository: ${{ parameters.acrServiceConnection }}/reactspringapp
+      containerRegistry: ${{ parameters.acrServiceConnection }}
+
+  - task: AzureCLI@2
+    displayName: 'Terraform Initialize DEV'
+    inputs:
+      azureSubscription: ${{ parameters.armServiceConnection }}
+      workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.workingDirectory }}
+      addSpnToEnvironment: true
+      scriptType: bash
+      failOnStandardError: false
+      scriptLocation: inlineScript
+      inlineScript: |
+
+        export ARM_CLIENT_ID="${servicePrincipalId}"
+        export ARM_CLIENT_SECRET="${servicePrincipalKey}"
+        export ARM_TENANT_ID="${tenantId}"
+        arm_subscription_id=`az account show --query id --output tsv`
+        export ARM_SUBSCRIPTION_ID=$arm_subscription_id
+
+        terraform init -no-color -input=false -reconfigure \
+          -backend-config='storage_account_name=${{ parameters.terraformStorageAccount }}' \
+          -backend-config='container_name=${{ parameters.statefile }}-${{ parameters.terraformStorageAccountContainer }}' \
+          -backend-config='key=${{ parameters.statefile }}-${{ parameters.terraformStorageAccountContainer }}-dev.tfstate' \
+          -backend-config='resource_group_name=${{ parameters.terraformResourceGroup }}'
+
+  - task: AzureCLI@2
+    displayName: 'Terraform Plan DEV'
+    inputs:
+      azureSubscription: ${{ parameters.armServiceConnection }}
+      workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.workingDirectory }}
+      addSpnToEnvironment: true
+      scriptType: bash
+      failOnStandardError: false
+      scriptLocation: inlineScript
+      inlineScript: |
+
+        export ARM_CLIENT_ID="${servicePrincipalId}"
+        export ARM_CLIENT_SECRET="${servicePrincipalKey}"
+        export ARM_TENANT_ID="${tenantId}"
+        arm_subscription_id=`az account show --query id --output tsv`
+        export ARM_SUBSCRIPTION_ID=$arm_subscription_id
+        if ! ${{ parameters.isdestroy }}; then
+          terraform plan -no-color -input=false -out ${{ parameters.workingDirectory }}.tfplan -var-file=terraform.tfvars -var myContainerApp=mycontainerapp-dev -var imageTag=$(Build.BuildId)
+        else
+          terraform plan -no-color -input=false -destroy -out ${{ parameters.workingDirectory }}.tfplan -var-file=terraform.tfvars -var myContainerApp=mycontainerapp-dev -var imageTag=$(Build.BuildId)
+        fi
+
+  - task: AzureCLI@2
+    displayName: 'Terraform Apply DEV'
+    inputs:
+      azureSubscription: ${{ parameters.armServiceConnection }}
+      workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.workingDirectory }}
+      addSpnToEnvironment: true
+      scriptType: bash
+      failOnStandardError: false
+      scriptLocation: inlineScript
+      inlineScript: |
+        export ARM_CLIENT_ID="${servicePrincipalId}"
+        export ARM_CLIENT_SECRET="${servicePrincipalKey}"
+        export ARM_TENANT_ID="${tenantId}"
+        arm_subscription_id=`az account show --query id --output tsv`
+        export ARM_SUBSCRIPTION_ID=$arm_subscription_id
+
+        if ! ${{ parameters.isdestroy }}; then
+          terraform apply -no-color -input=false -auto-approve ${{ parameters.workingDirectory }}.tfplan 
+        else
+          terraform apply -destroy -no-color -input=false -auto-approve ${{ parameters.workingDirectory }}.tfplan
+        fi
+
+- job: deployGate
+  pool: server
+  dependsOn: appBuild
+  displayName: Prod Gate
+
+  steps:
+  - task: ManualValidation@0
+    inputs:
+      instructions: Approve for PROD. 
+
+- job: appDeploy
+  dependsOn: deployGate
+  displayName: App Deploy Prod
+
+  steps:
+  - task: AzureCLI@2
+    displayName: 'Terraform Initialize PROD'
+    inputs:
+      azureSubscription: ${{ parameters.armServiceConnection }}
+      workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.workingDirectory }}
+      addSpnToEnvironment: true
+      scriptType: bash
+      failOnStandardError: false
+      scriptLocation: inlineScript
+      inlineScript: |
+
+        export ARM_CLIENT_ID="${servicePrincipalId}"
+        export ARM_CLIENT_SECRET="${servicePrincipalKey}"
+        export ARM_TENANT_ID="${tenantId}"
+        arm_subscription_id=`az account show --query id --output tsv`
+        export ARM_SUBSCRIPTION_ID=$arm_subscription_id
+
+        terraform init -no-color -input=false -reconfigure \
+          -backend-config='storage_account_name=${{ parameters.terraformStorageAccount }}' \
+          -backend-config='container_name=${{ parameters.statefile }}-${{ parameters.terraformStorageAccountContainer }}' \
+          -backend-config='key=${{ parameters.statefile }}-${{ parameters.terraformStorageAccountContainer }}-prod.tfstate' \
+          -backend-config='resource_group_name=${{ parameters.terraformResourceGroup }}'
+
+  - task: AzureCLI@2
+    displayName: 'Terraform Plan PROD'
+    inputs:
+      azureSubscription: ${{ parameters.armServiceConnection }}
+      workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.workingDirectory }}
+      addSpnToEnvironment: true
+      scriptType: bash
+      failOnStandardError: false
+      scriptLocation: inlineScript
+      inlineScript: |
+
+        export ARM_CLIENT_ID="${servicePrincipalId}"
+        export ARM_CLIENT_SECRET="${servicePrincipalKey}"
+        export ARM_TENANT_ID="${tenantId}"
+        arm_subscription_id=`az account show --query id --output tsv`
+        export ARM_SUBSCRIPTION_ID=$arm_subscription_id
+        if ! ${{ parameters.isdestroy }}; then
+          terraform plan -no-color -input=false -out ${{ parameters.workingDirectory }}.tfplan -var-file=terraform.tfvars -var myContainerApp=mycontainerapp-prod -var imageTag=$(Build.BuildId)
+        else
+          terraform plan -no-color -input=false -destroy -out ${{ parameters.workingDirectory }}.tfplan -var-file=terraform.tfvars -var myContainerApp=mycontainerapp-prod -var imageTag=$(Build.BuildId)
+        fi
+
+  - task: AzureCLI@2
+    displayName: 'Terraform Apply PROD'
+    inputs:
+      azureSubscription: ${{ parameters.armServiceConnection }}
+      workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.workingDirectory }}
+      addSpnToEnvironment: true
+      scriptType: bash
+      failOnStandardError: false
+      scriptLocation: inlineScript
+      inlineScript: |
+        export ARM_CLIENT_ID="${servicePrincipalId}"
+        export ARM_CLIENT_SECRET="${servicePrincipalKey}"
+        export ARM_TENANT_ID="${tenantId}"
+        arm_subscription_id=`az account show --query id --output tsv`
+        export ARM_SUBSCRIPTION_ID=$arm_subscription_id
+
+        if ! ${{ parameters.isdestroy }}; then
+          terraform apply -no-color -input=false -auto-approve ${{ parameters.workingDirectory }}.tfplan 
+        else
+          terraform apply -destroy -no-color -input=false -auto-approve ${{ parameters.workingDirectory }}.tfplan
+        fi
