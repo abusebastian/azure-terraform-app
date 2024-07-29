@@ -11,7 +11,14 @@ Configuring the Application pipeline.
         - Storage Container : myassignmentapp-statefile
         - Container App: mycontainerapp-dev
         - Container App: mycontainerapp-prod
+        - Deploy the application to dev environment (mycontainerapp-dev)
+        - Approval Gate to check whether app woks as expected
+        - Deploy the application to prod environment (mycontainerapp-prod)
 
+---
+# Destroy Functionality
+
+On pipeline trigger select isdetroy to true to destroy the app
 
 # react-and-spring-data-rest
 
